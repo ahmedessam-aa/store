@@ -1,0 +1,536 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مصنع بن البهنساوي - نظام إدارة مخزن البن</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="auth-locked">
+  <div id="loginGate" class="login-gate">
+    <div class="login-card">
+      <img src="789.jpg" alt="شعار مصنع بن البهنساوي" class="login-logo" />
+      <h2>تسجيل الدخول للنظام</h2>
+      <p>ادخل اسم المستخدم وكلمة المرور لفتح النظام</p>
+      <form id="loginForm" class="login-form">
+        <label for="loginUser">اسم المستخدم</label>
+        <input type="text" id="loginUser" autocomplete="username" required />
+        <label for="loginPass">كلمة المرور</label>
+        <input type="password" id="loginPass" autocomplete="current-password" required />
+        <button type="submit" class="btn primary" id="loginBtn">دخول</button>
+        <div id="loginError" class="login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="loader" class="loader-overlay">
+    <div class="loader-spinner"></div>
+    <p>جار تحميل النظام...</p>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="789.jpg" alt="شعار مصنع بن البهنساوي" class="brand-logo" />
+      <div>
+        <h1>مصنع بن البهنساوي</h1>
+        <p>نظام إدارة مخزن البن المطحون</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn ghost" id="printCurrentPage">طباعة الصفحة الحالية</button>
+      <button class="btn danger" id="logoutBtn">تسجيل الخروج</button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <button class="nav-btn active" data-page="dashboard">لوحة التحكم</button>
+      <button class="nav-btn" data-page="products">إدارة المنتجات</button>
+      <button class="nav-btn" data-page="inventory">المخزون</button>
+      <button class="nav-btn" data-page="agents">إدارة المناديب</button>
+      <button class="nav-btn" data-page="orders">صرف البضاعة</button>
+      <button class="nav-btn" data-page="customers">إدارة العملاء</button>
+      <button class="nav-btn" data-page="customer-orders">طلبيات العملاء</button>
+      <button class="nav-btn" data-page="customer-returns">مرتجعات العملاء</button>
+      <button class="nav-btn" data-page="gifts">الهدايا والعينات</button>
+      <button class="nav-btn" data-page="returns">المرتجعات</button>
+      <button class="nav-btn" data-page="reports">التقارير</button>
+      <button class="nav-btn" data-page="settings">الإعدادات</button>
+    </aside>
+
+    <main class="content">
+      <section id="page-dashboard" class="page active">
+        <h2>لوحة التحكم</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>أكثر المنتجات صرفًا</h3>
+            <canvas id="topProductsChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>أداء كل مندوب</h3>
+            <canvas id="agentsPerformanceChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>حركة المخزن (وارد / منصرف / مرتجع)</h3>
+            <canvas id="warehouseFlowChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-products" class="page">
+        <div class="section-head">
+          <h2>إدارة المنتجات</h2>
+          <button class="btn primary" id="addProductBtn">إضافة منتج</button>
+        </div>
+        <div class="tools-row">
+          <input type="text" id="productSearch" placeholder="بحث باسم المنتج..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم المنتج</th>
+                <th>سعر العلبة</th>
+                <th>الرصيد الحالي (كرتونة / علبة / كيس)</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="productsPagination"></div>
+      </section>
+
+      <section id="page-inventory" class="page">
+        <h2>المخزون</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>رصيد أول المدة</th>
+                <th>الرصيد الحالي (كرتونة / علبة / كيس)</th>
+                <th>إضافة وارد من المصنع (كرتونة / علبة / كيس)</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-agents" class="page">
+        <div class="section-head">
+          <h2>إدارة المناديب</h2>
+          <button class="btn primary" id="addAgentBtn">إضافة مندوب</button>
+        </div>
+        <div class="tools-row">
+          <input type="text" id="agentSearch" placeholder="بحث باسم المندوب..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم المندوب</th>
+                <th>رقم الهاتف</th>
+                <th>العربية</th>
+                <th>الحالة المالية</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="agentsTableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="agentsPagination"></div>
+      </section>
+
+      <section id="page-orders" class="page">
+        <h2>صرف البضاعة للمناديب</h2>
+        <div class="order-form">
+          <div class="grid-2">
+            <div>
+              <label>المندوب</label>
+              <select id="orderAgentSelect"></select>
+            </div>
+            <div>
+              <label>تاريخ الطلب</label>
+              <input type="date" id="orderDate" />
+            </div>
+          </div>
+          <div id="orderItemsContainer"></div>
+          <button class="btn secondary" id="addOrderItemBtn">إضافة صنف للطلبية</button>
+          <div class="order-total">إجمالي الطلبية: <strong id="orderTotal">0.00</strong> جنيه</div>
+          <button class="btn primary" id="saveOrderBtn">حفظ الطلبية</button>
+        </div>
+        <div class="tools-row grid-2" style="margin-top: 12px;">
+          <div>
+            <label>فلتر من تاريخ</label>
+            <input type="date" id="ordersFromDate" />
+          </div>
+          <div>
+            <label>فلتر إلى تاريخ</label>
+            <input type="date" id="ordersToDate" />
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top: 12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المندوب</th>
+                <th>تفاصيل الأصناف</th>
+                <th>الإجمالي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="ordersHistoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-customers" class="page">
+        <div class="section-head">
+          <h2>إدارة العملاء</h2>
+          <button class="btn primary" id="addCustomerBtn">إضافة عميل</button>
+        </div>
+        <div class="tools-row">
+          <input type="text" id="customerSearch" placeholder="بحث باسم العميل..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم العميل</th>
+                <th>رقم الهاتف</th>
+                <th>العنوان</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="customersTableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="customersPagination"></div>
+      </section>
+
+      <section id="page-customer-orders" class="page">
+        <h2>صرف البضاعة للعملاء</h2>
+        <div class="order-form">
+          <div class="grid-2">
+            <div>
+              <label>العميل</label>
+              <select id="customerOrderCustomerSelect"></select>
+            </div>
+            <div>
+              <label>تاريخ الطلب</label>
+              <input type="date" id="customerOrderDate" />
+            </div>
+          </div>
+          <div id="customerOrderItemsContainer"></div>
+          <button class="btn secondary" id="addCustomerOrderItemBtn">إضافة صنف للطلبية</button>
+          <div class="order-total">إجمالي الطلبية: <strong id="customerOrderTotal">0.00</strong> جنيه</div>
+          <button class="btn primary" id="saveCustomerOrderBtn">حفظ طلبية العميل</button>
+        </div>
+        <div class="tools-row grid-2" style="margin-top: 12px;">
+          <div>
+            <label>فلتر من تاريخ</label>
+            <input type="date" id="customerOrdersFromDate" />
+          </div>
+          <div>
+            <label>فلتر إلى تاريخ</label>
+            <input type="date" id="customerOrdersToDate" />
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top: 12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>العميل</th>
+                <th>تفاصيل الأصناف</th>
+                <th>الإجمالي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="customerOrdersHistoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-gifts" class="page">
+        <h2>إدارة الهدايا والعينات</h2>
+        <div class="order-form">
+          <div class="grid-3">
+            <div>
+              <label>نوع الحركة</label>
+              <select id="giftType">
+                <option value="gift">هدية</option>
+                <option value="sample">عينة</option>
+              </select>
+            </div>
+            <div>
+              <label>المنتج</label>
+              <select id="giftProductSelect"></select>
+            </div>
+            <div>
+              <label>الكمية</label>
+              <div class="unit-row">
+                <input type="number" step="1" min="0" id="giftQty" />
+                <select id="giftUnit">
+                  <option value="bag">كيس</option>
+                  <option value="box">علبة</option>
+                  <option value="carton">كرتونة</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <label>المستلم / الجهة</label>
+              <input type="text" id="giftTarget" placeholder="اسم مستلم الهدية أو العينة" />
+            </div>
+            <div>
+              <label>التاريخ</label>
+              <input type="date" id="giftDate" />
+            </div>
+          </div>
+          <div>
+            <label>ملاحظة</label>
+            <input type="text" id="giftNote" placeholder="اختياري" />
+          </div>
+          <button class="btn primary" id="saveGiftBtn">تسجيل الحركة</button>
+        </div>
+        <div class="tools-row grid-2" style="margin-top: 12px;">
+          <div>
+            <label>فلتر من تاريخ</label>
+            <input type="date" id="giftsFromDate" />
+          </div>
+          <div>
+            <label>فلتر إلى تاريخ</label>
+            <input type="date" id="giftsToDate" />
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top: 12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>نوع الحركة</th>
+                <th>المستلم</th>
+                <th>تفاصيل الصنف</th>
+                <th>القيمة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="giftsHistoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-customer-returns" class="page">
+        <h2>تسجيل مرتجعات العملاء</h2>
+        <div class="grid-3">
+          <div>
+            <label>العميل</label>
+            <select id="customerReturnCustomerSelect"></select>
+          </div>
+          <div>
+            <label>المنتج</label>
+            <select id="customerReturnProductSelect"></select>
+          </div>
+          <div>
+            <label>الكمية المرتجعة</label>
+            <div class="unit-row">
+              <input type="number" step="1" min="0" id="customerReturnQty" />
+              <select id="customerReturnUnit">
+                <option value="bag">كيس</option>
+                <option value="box">علبة</option>
+                <option value="carton">كرتونة</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>قيمة المرتجع</label>
+            <input type="number" step="0.01" id="customerReturnValue" placeholder="يتم تعبئتها تلقائيًا" readonly />
+          </div>
+          <div>
+            <label>تاريخ المرتجع</label>
+            <input type="date" id="customerReturnDate" />
+          </div>
+        </div>
+        <button class="btn primary" id="saveCustomerReturnBtn">تسجيل مرتجع العميل</button>
+      </section>
+
+      <section id="page-returns" class="page">
+        <h2>تسجيل المرتجعات</h2>
+        <div class="grid-3">
+          <div>
+            <label>المندوب</label>
+            <select id="returnAgentSelect"></select>
+          </div>
+          <div>
+            <label>المنتج</label>
+            <select id="returnProductSelect"></select>
+          </div>
+          <div>
+            <label>الكمية المرتجعة</label>
+            <div class="unit-row">
+              <input type="number" step="1" min="0" id="returnQty" />
+              <select id="returnUnit">
+                <option value="bag">كيس</option>
+                <option value="box">علبة</option>
+                <option value="carton">كرتونة</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>قيمة المرتجع</label>
+            <input type="number" step="0.01" id="returnValue" placeholder="يتم تعبئتها تلقائيًا" readonly />
+          </div>
+          <div>
+            <label>تاريخ المرتجع</label>
+            <input type="date" id="returnDate" />
+          </div>
+        </div>
+        <button class="btn primary" id="saveReturnBtn">تسجيل المرتجع</button>
+      </section>
+
+      <section id="page-reports" class="page">
+        <h2>التقارير</h2>
+        <div class="report-filters">
+          <div>
+            <label>من تاريخ</label>
+            <input type="date" id="reportFromDate" />
+          </div>
+          <div>
+            <label>إلى تاريخ</label>
+            <input type="date" id="reportToDate" />
+          </div>
+          <div>
+            <label>المندوب</label>
+            <select id="reportAgentSelect"></select>
+          </div>
+          <div class="filter-btn-wrap">
+            <button class="btn secondary" id="applyReportFilters">تطبيق الفلترة</button>
+          </div>
+        </div>
+
+        <div class="report-cards-grid">
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير المناديب</h3>
+              <div class="report-actions" data-report="agents">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="agentsReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير حركة المخزن</h3>
+              <div class="report-actions" data-report="warehouse">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="warehouseReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير الرصيد الحالي لكل منتج</h3>
+              <div class="report-actions" data-report="stock">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="stockReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير أكثر المنتجات مبيعًا</h3>
+              <div class="report-actions" data-report="topProducts">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="topProductsReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير إجمالي الأرباح</h3>
+              <div class="report-actions" data-report="profit">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="profitReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير العملاء</h3>
+              <div class="report-actions" data-report="customers">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="customersReportBody" class="report-body"></div>
+          </article>
+
+          <article class="report-card">
+            <div class="report-head">
+              <h3>تقرير الهدايا والعينات</h3>
+              <div class="report-actions" data-report="gifts">
+                <button class="btn ghost report-print">طباعة</button>
+                <button class="btn ghost report-excel">Excel</button>
+                <button class="btn ghost report-pdf">PDF</button>
+              </div>
+            </div>
+            <div id="giftsReportBody" class="report-body"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-settings" class="page">
+        <h2>الإعدادات وإدارة البيانات</h2>
+        <div class="settings-actions">
+          <button class="btn primary" id="exportDataBtn">تصدير البيانات JSON</button>
+          <label class="btn secondary" for="importDataInput">استيراد البيانات</label>
+          <input type="file" id="importDataInput" accept="application/json" hidden />
+          <button class="btn danger" id="clearDataBtn">حذف جميع البيانات</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
